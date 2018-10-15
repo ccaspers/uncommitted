@@ -1,0 +1,22 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+"e1839a8" = {editable = true, path = "."}
+
+[dev-packages]
+pytest = "*"
+tox = "*"
+black = "*"
+"flake8" = "*"
+rope = "*"
+mypy = "*"
+ipython = "*"
+
+[requires]
+python_version = "3.7"
+
+[pipenv]
+allow_prereleases = true
