@@ -3,3 +3,5 @@
 *.pyc
 /.cache/
 /.tox/
+__pycache__
+*.egg-info
