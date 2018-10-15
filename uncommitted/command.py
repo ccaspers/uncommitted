@@ -161,9 +161,7 @@ def scan(repos, options):
 def main():
     parser = ArgumentParser(usage=USAGE)
     parser.add_argument(
-        "directory",
-        type=str,
-        help="print every repository whether changed or not",
+        "directory", type=str, help="print every repository whether changed or not"
     )
     parser.add_argument(
         "-v",
@@ -190,7 +188,7 @@ def main():
         "-i",
         dest="ignore_patterns",
         default=[],
-        nargs='*',
+        nargs="*",
         help="ignore any directory paths that contain the specified string",
     )
     parser.add_argument(

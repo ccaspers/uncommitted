@@ -139,4 +139,4 @@ Changelog
 .. _Eapen: http://eapen.in
 
 """
-__version__ = '2.1'
+__version__ = "2.1"
