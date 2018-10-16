@@ -3,9 +3,10 @@
 import os
 import re
 import sys
-from IPython import embed
 from argparse import ArgumentParser
 from subprocess import CalledProcessError, check_output
+
+from IPython import embed
 
 USAGE = """usage: %%prog [options] path [path...]
 
@@ -161,7 +162,10 @@ def scan(repos, options):
 def main():
     parser = ArgumentParser(usage=USAGE)
     parser.add_argument(
-        "directory", type=str, help="print every repository whether changed or not"
+        "directory",
+        type=str,
+        default=".",
+        help="print every repository whether changed or not",
     )
     parser.add_argument(
         "-v",
