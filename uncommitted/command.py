@@ -6,8 +6,6 @@ import sys
 from argparse import ArgumentParser
 from subprocess import CalledProcessError, check_output
 
-from IPython import embed
-
 USAGE = """usage: %%prog [options] path [path...]
 
   Checks the status of all git, Subversion, and Mercurial repositories
@@ -165,6 +163,7 @@ def main():
         "directory",
         type=str,
         default=".",
+        nargs="?",
         help="print every repository whether changed or not",
     )
     parser.add_argument(
@@ -201,7 +200,7 @@ def main():
     )
 
     args = parser.parse_args()
-    embed()
+
     if not args:
         parser.print_help()
         exit(2)
