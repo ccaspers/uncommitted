@@ -1,10 +1,11 @@
 """The 'uncommitted' command-line tool itself."""
 
 import os
-import re
 import sys
 from argparse import ArgumentParser
-from subprocess import CalledProcessError, check_output
+
+from . import git
+from .finder import find_repos
 
 USAGE = """usage: %%prog [options] path [path...]
 
@@ -14,117 +15,20 @@ USAGE = """usage: %%prog [options] path [path...]
   with the status of the files inside."""
 
 
+SYSTEMS = {b".git": (b"Git", git.status)}
+DOTDIRS = set(SYSTEMS)
+
+
 class ErrorCannotLocate(Exception):
     """Signal that we cannot successfully run the locate(1) binary."""
 
 
-globchar = re.compile(br"([][*?])")
-git_submodule = re.compile(br"\s(\S*)\s\(.*\)")
 linesep = os.linesep.encode("ascii")
 
 
 def output(thing):
     """Replacement for print() that outputs bytes."""
     os.write(1, thing + linesep)
-
-
-def run(command, **kw):
-    """Run `command`, catch any exception, and return lines of output."""
-    # Windows low-level subprocess API wants str for current working
-    # directory.
-    if sys.platform == "win32":
-        _cwd = kw.get("cwd", None)
-        if _cwd is not None:
-            kw["cwd"] = _cwd.decode()
-    try:
-        # In Python 3, iterating over bytes yield integers, so we call
-        # `splitlines()` to force Python 3 to give us lines instead.
-        return check_output(command, **kw).splitlines()
-    except CalledProcessError:
-        return ()
-    except FileNotFoundError:
-        print(
-            "The {} binary was not found. Skipping directory {}.\n".format(
-                command[0], kw["cwd"].decode("UTF-8")
-            )
-        )
-        return ()
-
-
-def escape(s):
-    """Escape the characters special to locate(1) globbing."""
-    return globchar.sub(br"\\\1", s)
-
-
-def find_repos(path):
-    """Walk a tree and return a sequence of (directory, dotdir) pairs."""
-    repos = []
-
-    # This is for detecting symlink loops and escaping them. This is similar to
-    # http://stackoverflow.com/questions/36977259/avoiding-infinite-recursion-with-os-walk/36977656#36977656
-    def inode(path):
-        stats = os.stat(path)
-        return stats.st_dev, stats.st_ino
-
-    seen_inodes = {inode(path)}
-
-    for dirpath, dirnames, filenames in os.walk(path, followlinks=True):
-        inodes = [inode(os.path.join(dirpath, p)) for p in dirnames]
-        dirnames[:] = [p for p, i in zip(dirnames, inodes) if i not in seen_inodes]
-        seen_inodes.update(inodes)
-
-        for dotdir in set(dirnames) & DOTDIRS:
-            repos.append((dirpath, dotdir))
-    return repos
-
-
-def status_git(path, ignore_set, options):
-    """Run git status.
-
-    Returns a 2-element tuple:
-    * Text lines describing the status of the repository.
-    * List of subrepository paths, relative to the repository itself.
-    """
-    # Check whether current branch is dirty:
-    lines = [
-        l
-        for l in run(("git", "status", "-s", "-b"), cwd=path)
-        if (options.untracked or not l.startswith(b"?")) and not l.startswith(b"##")
-    ]
-
-    # Check all branches for unpushed commits:
-    lines += [l for l in run(("git", "branch", "-v"), cwd=path) if (b" [ahead " in l)]
-
-    # Check for non-tracking branches:
-    if options.non_tracking:
-        lines += [
-            l
-            for l in run(
-                (
-                    "git",
-                    "for-each-ref",
-                    "--format=[%(refname:short)]%(upstream)",
-                    "refs/heads",
-                ),
-                cwd=path,
-            )
-            if l.endswith(b"]")
-        ]
-
-    if options.stash:
-        lines += [l for l in run(("git", "stash", "list"), cwd=path)]
-
-    discovered_submodules = []
-    for l in run(("git", "submodule", "status"), cwd=path):
-        match = git_submodule.search(l)
-        if match:
-            discovered_submodules.append(match.group(1))
-
-    return lines, discovered_submodules
-
-
-SYSTEMS = {b".git": (b"Git", status_git)}
-DOTDIRS = set(SYSTEMS)
 
 
 def scan(repos, options):
@@ -217,7 +121,8 @@ def main():
     if not os.path.isdir(path):
         sys.stderr.write("Error: not a directory: %s\n" % (path,))
         sys.exit(3)
-    repos.update(find_repos(path))
+    paths = find_repos(path, patterns=DOTDIRS)
+    repos.update(paths)
 
     repos = sorted(repos)
     scan(repos, args)
